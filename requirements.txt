@@ -2,3 +2,4 @@ tri.struct
 tri.named_struct
 django
 pyparsing
+tri.table

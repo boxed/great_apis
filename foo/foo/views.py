@@ -49,8 +49,7 @@ def example5(request):
 
     request.user.is_admin = True
     request.user.is_staff = True
-    # TODO: fix so that we can remove the columns argument
-    return render_table_to_response(request, table=PersonTable(columns=PersonTable.Meta.columns))
+    return render_table_to_response(request, table=PersonTable())
 
 
 # -----
@@ -80,7 +79,7 @@ def list_model(request, app_name, model_name):
         template_name='base.html',
         links=[Link(title='Create %s' % model_name.replace('_', ' '), url='create/')],
         table__data=apps.all_models[app_name][model_name].objects.all(),
-        table__extra_fields=[Column.edit(cell__url=lambda row, **_: '%s/edit/' % row.pk)])
+        table__extra_fields=[Column.edit(after=0, cell__url=lambda row, **_: '%s/edit/' % row.pk)])
 
 
 def triadmin(request, app_name, model_name, pk, command):
