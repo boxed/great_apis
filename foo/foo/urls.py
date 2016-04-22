@@ -20,7 +20,7 @@ from foo.views import *
 
 urlpatterns = [
     url(r'^admin/', admin.site.urls),
-    url(r'^triadmin/(?P<app_name>\w+)?/?(?P<model_name>\w+)?/?(?P<pk>\d+)?/?(?P<command>\w+)?/?', triadmin),
+    url(r'^triadmin/(?P<app_name>\w+)?/?(?P<model_name>\w+)?/?(?P<pk>\d+)?/?(?P<command>\w+)?/?', triadmin_impl),
 
     url(r'^1/$', example1),
     url(r'^2/$', example2),

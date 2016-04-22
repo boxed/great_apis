@@ -1,6 +1,7 @@
 from django.shortcuts import render_to_response
 from django.utils.safestring import mark_safe
 from django.apps import apps
+from tri.declarative import assert_kwargs_empty, collect_namespaces, setattr_path, setdefaults_path
 from tri.form.views import create_object, edit_object
 from tri.struct import Struct
 from tri.table import render_table_to_response, Table, Column, Link
@@ -53,7 +54,9 @@ def example5(request):
 
 
 # -----
-def all_models(request):
+def all_models(request, **kwargs):
+    kwargs = collect_namespaces(kwargs)
+
     def data():
         for app_name, models in apps.all_models.items():
             for name, cls in models.items():
@@ -66,38 +69,78 @@ def all_models(request):
         class Meta:
             sortable = False
 
-    return render_table_to_response(
+    result = render_table_to_response(
         request,
         template_name='base.html',
         table=ModelsTable(data=data()),
-        paginate_by=None)
+        paginate_by=None,
+        **kwargs.pop('render_table', {}))
+    return result
 
 
-def list_model(request, app_name, model_name):
+def list_model(request, app_name, model_name, **kwargs):
+    kwargs = setdefaults_path(
+        kwargs,
+        table__data=apps.all_models[app_name][model_name].objects.all(),
+        table__extra_fields=[Column.edit(after=0, cell__url=lambda row, **_: '%s/edit/' % row.pk)],
+    )
     return render_table_to_response(
         request,
         template_name='base.html',
         links=[Link(title='Create %s' % model_name.replace('_', ' '), url='create/')],
-        table__data=apps.all_models[app_name][model_name].objects.all(),
-        table__extra_fields=[Column.edit(after=0, cell__url=lambda row, **_: '%s/edit/' % row.pk)])
+        **kwargs)
 
 
-def triadmin(request, app_name, model_name, pk, command):
+def triadmin(request, app_name, model_name, pk, command, **kwargs):
+    kwargs = collect_namespaces(kwargs)
+    all_models_kwargs = kwargs.pop('all_models', {})
+    list_model_kwargs = kwargs.pop('list_model', {})
+    create_object_kwargs = kwargs.pop('create_object', {})
+    edit_object_kwargs = kwargs.pop('edit_object', {})
+
+    def check_kwargs(kw):
+        for app_name, model_names in kw.items():
+            assert app_name in apps.all_models
+            for model_name in model_names:
+                assert model_name in apps.all_models[app_name]
+
+    check_kwargs(list_model_kwargs)
+    check_kwargs(create_object_kwargs)
+    check_kwargs(edit_object_kwargs)
+
     if app_name is None and model_name is None:
-        return all_models(request)
+        result = all_models(request, **all_models_kwargs)
 
-    if command is None:
-        return list_model(request, app_name, model_name)
+    elif command is None:
+        assert pk is None
+        result = list_model(request, app_name, model_name, **list_model_kwargs.pop(app_name, {}).pop(model_name))
 
-    if pk is None and command == 'create':
-        return create_object(
+    elif command == 'create':
+        assert pk is None
+        result = create_object(
             request,
             model=apps.all_models[app_name][model_name],
-            render=render_to_response)
+            render=render_to_response,
+            **create_object_kwargs.pop(app_name, {}).pop(model_name))
 
-    assert pk and command == 'edit'
+    elif command == 'edit':
+        assert pk
+        result = edit_object(
+            request,
+            instance=apps.all_models[app_name][model_name].objects.get(pk=pk),
+            render=render_to_response,
+            **edit_object_kwargs.pop(app_name, {}).pop(model_name))
 
-    return edit_object(
-        request,
-        instance=apps.all_models[app_name][model_name].objects.get(pk=pk),
-        render=render_to_response)
+    else:
+        assert False, 'unknown command %s' % command
+
+    assert_kwargs_empty(kwargs)
+    return result
+
+
+def triadmin_impl(request, **kwargs):
+    return triadmin(request=request, **setdefaults_path(
+        Struct(),
+        kwargs,
+        list_model__auth__user__table__column__password__show=False,
+    ))
