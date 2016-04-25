@@ -1,7 +1,7 @@
 from django.shortcuts import render_to_response
 from django.utils.safestring import mark_safe
 from django.apps import apps
-from tri.declarative import assert_kwargs_empty, collect_namespaces, setattr_path, setdefaults_path
+from tri.declarative import assert_kwargs_empty, collect_namespaces, setdefaults_path
 from tri.form.views import create_object, edit_object
 from tri.struct import Struct
 from tri.table import render_table_to_response, Table, Column, Link
@@ -55,12 +55,13 @@ def example5(request):
 
 # -----
 def all_models(request, **kwargs):
-    kwargs = collect_namespaces(kwargs)
+    kwargs = setdefaults_path(Struct(), kwargs)
 
     def data():
         for app_name, models in apps.all_models.items():
             for name, cls in models.items():
-                yield Struct(app_name=app_name, model_name=name, model=cls)
+                if kwargs.get(app_name, {}).get(name, {}).get('show', True):
+                    yield Struct(app_name=app_name, model_name=name, model=cls)
 
     class ModelsTable(Table):
         app_name = Column(auto_rowspan=True)
@@ -113,7 +114,7 @@ def triadmin(request, app_name, model_name, pk, command, **kwargs):
 
     elif command is None:
         assert pk is None
-        result = list_model(request, app_name, model_name, **list_model_kwargs.pop(app_name, {}).pop(model_name))
+        result = list_model(request, app_name, model_name, **list_model_kwargs.pop(app_name, {}).pop(model_name, {}))
 
     elif command == 'create':
         assert pk is None
@@ -121,7 +122,7 @@ def triadmin(request, app_name, model_name, pk, command, **kwargs):
             request,
             model=apps.all_models[app_name][model_name],
             render=render_to_response,
-            **create_object_kwargs.pop(app_name, {}).pop(model_name))
+            **create_object_kwargs.pop(app_name, {}).pop(model_name, {}))
 
     elif command == 'edit':
         assert pk
@@ -129,7 +130,7 @@ def triadmin(request, app_name, model_name, pk, command, **kwargs):
             request,
             instance=apps.all_models[app_name][model_name].objects.get(pk=pk),
             render=render_to_response,
-            **edit_object_kwargs.pop(app_name, {}).pop(model_name))
+            **edit_object_kwargs.pop(app_name, {}).pop(model_name, {}))
 
     else:
         assert False, 'unknown command %s' % command
@@ -142,5 +143,6 @@ def triadmin_impl(request, **kwargs):
     return triadmin(request=request, **setdefaults_path(
         Struct(),
         kwargs,
+        all_models__sessions__session__show=False,
         list_model__auth__user__table__column__password__show=False,
     ))
