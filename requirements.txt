@@ -3,3 +3,4 @@ tri.named_struct
 django
 pyparsing
 tri.table
+django-static-precompiler[libsass]

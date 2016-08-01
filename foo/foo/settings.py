@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'tri.form',
     'tri.query',
     'tri.table',
+    'static_precompiler',
 ]
 
 MIDDLEWARE_CLASSES = [
@@ -52,6 +53,7 @@ MIDDLEWARE_CLASSES = [
     'django.contrib.auth.middleware.SessionAuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'foo.middleware.ProfileMiddleware',
 ]
 
 ROOT_URLCONF = 'foo.urls'
@@ -123,3 +125,25 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/1.9/howto/static-files/
 
 STATIC_URL = '/static/'
+STATIC_ROOT = 'static/'
+
+STATICFILES_FINDERS = (
+    'django.contrib.staticfiles.finders.FileSystemFinder',
+    'django.contrib.staticfiles.finders.AppDirectoriesFinder',
+    # other finders..
+    'static_precompiler.finders.StaticPrecompilerFinder',
+)
+
+STATIC_PRECOMPILER_COMPILERS = (
+    ('static_precompiler.compilers.libsass.SCSS', {
+        "sourcemap_enabled": True,
+        "load_paths": ["/path"],
+        "precision": 8,
+    }),
+    ('static_precompiler.compilers.libsass.SASS', {
+        "sourcemap_enabled": True,
+        "load_paths": ["/path"],
+        "precision": 8,
+        "output_style": "compressed"
+    }),
+)

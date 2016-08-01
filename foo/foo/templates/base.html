@@ -1,12 +1,22 @@
-<html>
+{% load compile_static %}
+{% load static %}<html>
 <head>
+    <title>Admin</title>
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script>
+    <link rel="stylesheet" href="{% static "table.scss"|compile %}" />
+    <link rel="stylesheet" href="{% static "triadmin.scss"|compile %}" />
 </head>
 <body>
-    <a href="/triadmin/">Admin home</a>
+    <div id="header">
+        <a href="/triadmin/">Admin home</a>
+    </div>
 
-    <p></p>
+    <div class="content">
+        {% block content %}
+            {% include "tri_table/list.html" %}
+        {% endblock %}
+    </div>
 
-    {% include "tri_table/list.html" %}
 </body>
 </html>

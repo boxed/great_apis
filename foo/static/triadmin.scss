@@ -1,0 +1,38 @@
+body {
+  margin: 0;
+}
+
+#header {
+  padding: 14px;
+  width: 100%;
+  background-color: darkblue;
+  a {
+    color: lightgoldenrodyellow;
+  }
+}
+
+.content {
+  padding: 14px;
+}
+
+.links {
+  margin-top: 14px;
+}
+
+.formlabel {
+  font-weight: bold;
+}
+
+.formdescr {
+  font-size: 80%;
+}
+
+.description_container {
+  padding-top: 8px;
+}
+
+.listview td,
+.listview td a,
+.listview th {
+  font-size: 14px;
+}
