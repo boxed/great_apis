@@ -2,7 +2,7 @@
 # Original author: udfalkso
 # Modified by: Shwagroo Team, Gun.io, TriOptima
 
-import StringIO
+from io import StringIO
 import cProfile
 import os
 import subprocess
@@ -63,7 +63,6 @@ class ProfileMiddleware(object):
                     ps.dump_stats(stats_dump.name)
                     env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'env')
                     gprof2dot_path = os.path.join(env_path, 'bin', 'gprof2dot')
-                    print gprof2dot_path
                     gprof2dot = subprocess.Popen((os.path.join(env_path, 'bin', 'python'), gprof2dot_path, '-f', 'pstats', stats_dump.name), stdout=subprocess.PIPE)
                     response['Content-Type'] = 'image/svg+xml'
 
