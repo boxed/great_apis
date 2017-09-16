@@ -2,7 +2,7 @@ from django.shortcuts import render_to_response
 from django.utils.safestring import mark_safe
 from django.apps import apps
 
-from tri.declarative import assert_kwargs_empty, collect_namespaces, setdefaults_path, dispatch, EMPTY
+from tri.declarative import setdefaults_path, dispatch, EMPTY, Namespace
 from tri.form.views import create_object, edit_object
 from tri.struct import Struct, merged
 from tri.table import render_table_to_response, Table, Link
@@ -76,7 +76,7 @@ class Column(tri_table.Column):
             kwargs,
             query__show=True,
             query__gui__show=True,
-            query__gui__class=Field.choice,
+            query__gui=Field.choice,
             query__gui__choices=[True, False],
             query__gui__parse=lambda string_value, **_: bool_parse(string_value),
         )
@@ -87,6 +87,9 @@ class Column(tri_table.Column):
         return Column.from_model(**setdefaults_path(kwargs, query__show=True, query__freetext=True))
 
 
+@dispatch(
+    app=Namespace(),
+)
 def all_models(request, **kwargs):
     kwargs = setdefaults_path(Struct(), kwargs)
 
@@ -105,14 +108,17 @@ def all_models(request, **kwargs):
 
     result = render_table_to_response(
         request,
-        template_name='base.html',
+        template='base.html',
         table=ModelsTable(data=data()),
         paginate_by=None,
         **kwargs.pop('render_table', {}))
     return result
 
 
-def list_model(request, app_name, model_name, **kwargs):
+@dispatch(
+    app=Namespace(),
+)
+def list_model(request, app_name, model_name, app, **kwargs):
     kwargs = setdefaults_path(
         kwargs,
         table__data=apps.all_models[app_name][model_name].objects.all(),
@@ -120,23 +126,20 @@ def list_model(request, app_name, model_name, **kwargs):
     )
     return render_table_to_response(
         request,
-        template_name='base.html',
+        template='base.html',
         links=[Link(title='Create %s' % model_name.replace('_', ' '), url='create/')],
-        **kwargs)
+        **kwargs
+    )
 
 
 @dispatch(
-    all=EMPTY,
-    list=EMPTY,
-    create=EMPTY,
-    edit=EMPTY,
+    all_models=Namespace(call_target=all_models),
+    list_model=Namespace(call_target=list_model),
+    create_object=Namespace(call_target=create_object),
+    edit_object=Namespace(call_target=edit_object),
+    model=EMPTY,
 )
-def triadmin(request, app_name, model_name, pk, command, all, list, create, edit, **kwargs):
-    kwargs = collect_namespaces(kwargs)
-    all_models_kwargs = kwargs.pop('all_models', {})
-    list_model_kwargs = kwargs.pop('list_model', {})
-    create_object_kwargs = kwargs.pop('create_object', {})
-    edit_object_kwargs = kwargs.pop('edit_object', {})
+def triadmin(request, app_name, model_name, pk, command, all_models, list_model, create_object, edit_object, model):
 
     def check_kwargs(kw):
         for app_name, model_names in kw.items():
@@ -144,55 +147,55 @@ def triadmin(request, app_name, model_name, pk, command, all, list, create, edit
             for model_name in model_names:
                 assert model_name in apps.all_models[app_name]
 
-    check_kwargs(list_model_kwargs)
-    check_kwargs(create_object_kwargs)
-    check_kwargs(edit_object_kwargs)
+    check_kwargs(model)
 
     if app_name is None and model_name is None:
-        result = all_models(request, **merged(all, all_models_kwargs))
+        result = all_models(request=request)
 
     elif command is None:
         assert pk is None
-        result = list_model(request, app_name, model_name, **merged(list, list_model_kwargs.pop(app_name, {}).pop(model_name, {})))
+        list_model = merged(list_model, model.pop(app_name, {}).pop(model_name, {}))
+        result = list_model(request=request, app_name=app_name, model_name=model_name)
 
     elif command == 'create':
         assert pk is None
+        create_object = merged(create_object, model.pop(app_name, {}).pop(model_name, {}))
         result = create_object(
-            request,
+            request=request,
             model=apps.all_models[app_name][model_name],
             render=render_to_response,
-            **merged(create, create_object_kwargs.pop(app_name, {}).pop(model_name, {})))
+        )
 
     elif command == 'edit':
         assert pk
+        edit_object = merged(edit_object, model.pop(app_name, {}).pop(model_name, {}))
         result = edit_object(
-            request,
+            request=request,
             instance=apps.all_models[app_name][model_name].objects.get(pk=pk),
             render=render_to_response,
-            **merged(edit, edit_object_kwargs.pop(app_name, {}).pop(model_name, {})))
+        )
 
     else:
         assert False, 'unknown command %s' % command
 
-    assert_kwargs_empty(kwargs)
     return result
 
 
 def triadmin_impl(request, **kwargs):
-    return triadmin(request=request, **setdefaults_path(
-        Struct(),
-        kwargs,
-        create__template_name='create_or_edit.html',
-        edit__template_name='create_or_edit.html',
-        all_models__sessions__session__show=False,
-        list_model__auth__user__table__column=dict(
-            is_superuser__class=Column.boolean_tri_state,
-            is_staff__class=Column.boolean_tri_state,
-            is_active__class=Column.boolean_tri_state,
+    return triadmin(
+        request=request,
+        create_object__template_name='create_or_edit.html',
+        edit_object__template_name='create_or_edit.html',
+        all_models__app__sessions__session__show=False,
+        list_model__app__auth__user__table__column=dict(
+            is_superuser=Column.boolean_tri_state,
+            is_staff=Column.boolean_tri_state,
+            is_active=Column.boolean_tri_state,
             groups__query=dict(show=True, gui__show=True),
-            email__class=Column.freetext,
-            first_name__class=Column.freetext,
-            last_name__class=Column.freetext,
+            email=Column.freetext,
+            first_name=Column.freetext,
+            last_name=Column.freetext,
         ),
-        list_model__auth__user__table__column__password__show=False,
-    ))
+        list_model__app__auth__user__table__column__password__show=False,
+        **kwargs,
+    )

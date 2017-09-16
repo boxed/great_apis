@@ -1,4 +1,3 @@
 tri.table
 django
-tri.table
 django-static-precompiler[libsass]
