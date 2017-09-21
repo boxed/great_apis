@@ -1,8 +1,7 @@
-from django.shortcuts import render_to_response
 from django.utils.safestring import mark_safe
 from django.apps import apps
 
-from tri.declarative import setdefaults_path, dispatch, EMPTY, Namespace
+from tri.declarative import setdefaults_path, dispatch, Namespace
 from tri.form.views import create_object, edit_object
 from tri.struct import Struct, merged
 from tri.table import render_table_to_response, Table, Link
@@ -90,13 +89,11 @@ class Column(tri_table.Column):
 @dispatch(
     app=Namespace(),
 )
-def all_models(request, **kwargs):
-    kwargs = setdefaults_path(Struct(), kwargs)
-
+def all_models(request, app, **kwargs):
     def data():
         for app_name, models in apps.all_models.items():
             for name, cls in models.items():
-                if kwargs.get(app_name, {}).get(name, {}).get('show', True):
+                if app.get(app_name, {}).get(name, {}).get('show', True):
                     yield Struct(app_name=app_name, model_name=name, model=cls)
 
     class ModelsTable(Table):
@@ -111,7 +108,7 @@ def all_models(request, **kwargs):
         template='base.html',
         table=ModelsTable(data=data()),
         paginate_by=None,
-        **kwargs.pop('render_table', {}))
+        **kwargs)
     return result
 
 
@@ -133,46 +130,40 @@ def list_model(request, app_name, model_name, app, **kwargs):
 
 
 @dispatch(
-    all_models=Namespace(call_target=all_models),
-    list_model=Namespace(call_target=list_model),
-    create_object=Namespace(call_target=create_object),
-    edit_object=Namespace(call_target=edit_object),
-    model=EMPTY,
+    all_models=all_models,
+    list_model=list_model,
+    create_object=create_object,
+    edit_object=edit_object,
 )
-def triadmin(request, app_name, model_name, pk, command, all_models, list_model, create_object, edit_object, model):
+def triadmin(request, app_name, model_name, pk, command, all_models, list_model, create_object, edit_object):
 
-    def check_kwargs(kw):
-        for app_name, model_names in kw.items():
-            assert app_name in apps.all_models
-            for model_name in model_names:
-                assert model_name in apps.all_models[app_name]
-
-    check_kwargs(model)
+    # def check_kwargs(kw):
+    #     for app_name, model_names in kw.items():
+    #         assert app_name in apps.all_models
+    #         for model_name in model_names:
+    #             assert model_name in apps.all_models[app_name]
+    #
+    # check_kwargs(model)
 
     if app_name is None and model_name is None:
         result = all_models(request=request)
 
     elif command is None:
-        assert pk is None
-        list_model = merged(list_model, model.pop(app_name, {}).pop(model_name, {}))
+        assert pk is Nones
         result = list_model(request=request, app_name=app_name, model_name=model_name)
 
     elif command == 'create':
         assert pk is None
-        create_object = merged(create_object, model.pop(app_name, {}).pop(model_name, {}))
         result = create_object(
             request=request,
             model=apps.all_models[app_name][model_name],
-            render=render_to_response,
         )
 
     elif command == 'edit':
         assert pk
-        edit_object = merged(edit_object, model.pop(app_name, {}).pop(model_name, {}))
         result = edit_object(
             request=request,
             instance=apps.all_models[app_name][model_name].objects.get(pk=pk),
-            render=render_to_response,
         )
 
     else:

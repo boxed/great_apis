@@ -1,5 +1,6 @@
-body {
+* {
   margin: 0;
+  padding: 0;
 }
 
 #header {
@@ -35,4 +36,17 @@ body {
 .listview td a,
 .listview th {
   font-size: 14px;
+}
+
+.required label:after {
+  content: " *";
+}
+
+ul.errorlist {
+  margin: 2px;
+  //-webkit-padding-start: 0;
+}
+
+.errorlist li {
+  list-style-type: none;
 }
