@@ -57,30 +57,6 @@ def example5(request):
 
 # -----
 class Column(tri_table.Column):
-    # @staticmethod
-    # def boolean_active_when_on(on_is=True, **kwargs):
-    #     kwargs = setdefaults_path(
-    #         Struct(),
-    #         kwargs,
-    #         query__show=True,
-    #         query__gui__show=True,
-    #         query__value_to_q=lambda variable, op, value_string_or_f: Q() if not value_string_or_f else Q(**{variable.attr: on_is})
-    #     )
-    #     return Column.from_model(**kwargs)
-
-    @staticmethod
-    def boolean_tri_state(**kwargs):
-        kwargs = setdefaults_path(
-            Struct(),
-            kwargs,
-            query__show=True,
-            query__gui__show=True,
-            query__gui=Field.choice,
-            query__gui__choices=[True, False],
-            query__gui__parse=lambda string_value, **_: bool_parse(string_value),
-        )
-        return Column.from_model(**kwargs)
-
     @staticmethod
     def freetext(**kwargs):
         return Column.from_model(**setdefaults_path(kwargs, query__show=True, query__freetext=True))
@@ -179,14 +155,11 @@ def triadmin_impl(request, **kwargs):
         edit_object__template_name='create_or_edit.html',
         all_models__app__sessions__session__show=False,
         list_model__app__auth__user__table__column=dict(
-            is_superuser=Column.boolean_tri_state,
-            is_staff=Column.boolean_tri_state,
-            is_active=Column.boolean_tri_state,
             groups__query=dict(show=True, gui__show=True),
-            email=Column.freetext,
-            first_name=Column.freetext,
-            last_name=Column.freetext,
+            email__call_target__attr='freetext',
+            first__call_target__attr='freetext',
+            last__call_target__attr='freetext',
+            password__show=False,
         ),
-        list_model__app__auth__user__table__column__password__show=False,
         **kwargs,
     )
